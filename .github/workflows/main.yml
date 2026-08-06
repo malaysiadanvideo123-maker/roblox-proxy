@@ -1,0 +1,64 @@
+name: RDP Roblox Studio (Ringan)
+
+on:
+  schedule:
+    - cron: '*/50 * * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 350
+
+    steps:
+      - name: Setup RDP + Optimasi
+        run: |
+          # Enable RDP
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          # OPTIMASI
+          Set-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects' -Name "VisualFXSetting" -Value 2
+          Stop-Service SysMain -Force
+          Stop-Service WSearch -Force
+          sc config SysMain start= disabled
+          sc config WSearch start= disabled
+          # Bikin User & Password
+          net user rdpuser Rdp123456!@# /add
+          net localgroup administrators rdpuser /add
+          net localgroup "Remote Desktop Users" rdpuser /add
+          # Install Tailscale
+          Write-Host "Menginstall Tailscale..."
+          winget install --id Tailscale.Tailscale --silent --accept-package-agreements --accept-source-agreements
+          Start-Sleep -Seconds 15
+          # Login Tailscale Otomatis (PASTIKAN SETTING SECRET SUDAH BENAR)
+          Write-Host "Login Tailscale..."
+          & "C:\Program Files\Tailscale\Tailscale.exe" login --auth-key $env:TAILSCALE_KEY
+          Start-Sleep -Seconds 10
+          # Download Roblox Studio
+          Invoke-WebRequest -Uri "https://setup.rbxcdn.com/RobloxStudioLauncher.exe" -OutFile "RobloxStudioLauncher.exe"
+          
+          # Ambil IP Tailscale
+          $ip = & "C:\Program Files\Tailscale\Tailscale.exe" ip -4
+          # Tampilkan Info Login di Log GitHub
+          echo "=================================================="
+          echo "✅ RDP AKTIF (Mode Ringan)!"
+          echo "🖥️  IP TAILSCALE: $ip"
+          echo "👤 User: rdpuser"
+          echo "🔑 Pass: Rdp123456!@#"
+          echo "=================================================="
+          echo ""
+          echo "⚠️  CARA AKSES DARI HP:"
+          echo "1. Download aplikasi 'Microsoft Remote Desktop' di HP."
+          echo "2. Isi PC Name dengan IP di atas (contoh: 100.xx.xx.xx)."
+          echo "3. Masukkan Username & Password."
+          echo "=================================================="
+        env:
+          # JANGAN LUPA! Ini harus diisi di Settings > Secrets and variables > Actions
+          TAILSCALE_KEY: ${{ secrets.TAILSCALE_KEY }}
+
+      - name: Keep Alive
+        run: |
+          while ($true) {
+            Write-Host "🟢 RDP Aktif - $(Get-Date)"
+            Start-Sleep -Seconds 3600
+          }
